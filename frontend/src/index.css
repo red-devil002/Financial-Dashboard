@@ -1,0 +1,48 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    @apply bg-bg text-ink font-sans antialiased;
+  }
+  /* Respect iOS safe areas on notched devices */
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+@layer components {
+  .card {
+    @apply bg-surface border border-line rounded-card shadow-card;
+  }
+  .card-title {
+    @apply text-xs font-semibold text-ink2 uppercase tracking-wide;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 px-3.5 py-2 text-sm rounded-lg border border-line2 bg-surface text-ink transition-colors hover:bg-surface2 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none;
+  }
+  .btn-primary {
+    @apply bg-brand text-white border-brand hover:bg-[#2a7acc];
+  }
+  .btn-danger {
+    @apply text-negative-text border-[#F09595] hover:bg-negative-bg;
+  }
+  .input {
+    @apply w-full px-3 py-2 text-sm rounded-lg border border-line2 bg-surface text-ink outline-none transition-colors focus:border-brand placeholder:text-ink3;
+  }
+  .label {
+    @apply block text-xs text-ink2 mb-1;
+  }
+  .badge {
+    @apply inline-flex items-center text-[11px] font-medium px-2 py-0.5 rounded;
+  }
+}
+
+/* Thin, unobtrusive scrollbars */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); border-radius: 6px; }
+::-webkit-scrollbar-track { background: transparent; }

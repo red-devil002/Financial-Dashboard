@@ -1,0 +1,16 @@
+{
+  "name": "finance-dashboard",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Personal finance dashboard — React + Tailwind frontend, Node/Express backend, Neon Postgres.",
+  "scripts": {
+    "install:all": "cd backend && npm install && cd ../frontend && npm install",
+    "setup:db": "cd backend && npm run db:setup",
+    "setup:ocr": "cd backend && npm run ocr:setup",
+    "dev:backend": "cd backend && npm run dev",
+    "dev:frontend": "cd frontend && npm run dev",
+    "build": "cd frontend && npm run build"
+  },
+  "author": "Swetang Pandit",
+  "license": "MIT"
+}
