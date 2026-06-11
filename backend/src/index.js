@@ -12,6 +12,7 @@ const cardsRouter = require('./routes/cards');
 const importsRouter = require('./routes/imports');
 const categoryRulesRouter = require('./routes/categoryRules');
 const receiptsRouter = require('./routes/receipts');
+const adminRouter = require('./routes/admin');
 const { errorHandler, notFound } = require('./middleware/errors');
 
 const app = express();
@@ -27,6 +28,10 @@ app.use(cors({
     }
     // Allow an explicitly configured production frontend URL
     if (process.env.FRONTEND_URL && origin === process.env.FRONTEND_URL) {
+      return callback(null, true);
+    }
+    // Allow any Vercel deployment (production + preview URLs change per deploy)
+    if (/^https:\/\/[a-z0-9-]+\.vercel\.app$/.test(origin)) {
       return callback(null, true);
     }
     return callback(new Error('Not allowed by CORS: ' + origin));
@@ -51,6 +56,7 @@ app.use('/api/cards', cardsRouter);
 app.use('/api/imports', importsRouter);
 app.use('/api/category-rules', categoryRulesRouter);
 app.use('/api/receipts', receiptsRouter);
+app.use('/api/admin', adminRouter);
 
 app.use(notFound);
 app.use(errorHandler);
@@ -58,6 +64,15 @@ app.use(errorHandler);
 app.listen(PORT, () => {
   console.log(`Finance dashboard backend running on http://localhost:${PORT}`);
   console.log(`Health check: http://localhost:${PORT}/health`);
+});
+
+// Safety net: log unexpected async errors (e.g. from worker threads) instead of
+// letting them crash the whole server.
+process.on('unhandledRejection', (reason) => {
+  console.error('Unhandled promise rejection:', reason);
+});
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught exception:', err);
 });
 
 module.exports = app;

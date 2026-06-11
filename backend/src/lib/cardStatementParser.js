@@ -20,9 +20,21 @@
 
 const RE_DATE_NUM = /(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})/;            // 11/03/2026
 const RE_DATE_TEXT = /(\d{1,2})\s*([A-Za-z]{3,9})\.?\s*(\d{2,4})/;          // 11 Mar 2026 / 11Mar2026
-const RE_AMOUNT = /(-?\$?\s?\d{1,3}(?:,\d{3})*\.\d{2})(\s*(?:DR|CR|dr|cr))?/g;
+const RE_AMOUNT = /(-?\$?\s?(?:\d{1,3}(?:,\d{3})+|\d+)\.\d{2})(\s*(?:DR|CR|dr|cr))?/g;
 
 const MONTHS = { jan:'01',feb:'02',mar:'03',apr:'04',may:'05',jun:'06',jul:'07',aug:'08',sep:'09',oct:'10',nov:'11',dec:'12' };
+
+// Quick check: does a line contain at least one money amount? Used to tell a
+// real transaction row apart from a footer/summary line.
+function extractAmountsCard(line) {
+  const out = [];
+  let m; RE_AMOUNT.lastIndex = 0;
+  while ((m = RE_AMOUNT.exec(line)) !== null) {
+    const num = parseFloat(m[1].replace(/[$,\s]/g, ''));
+    if (!isNaN(num)) out.push(num);
+  }
+  return out;
+}
 
 function pad(n){ return String(n).padStart(2,'0'); }
 function fullYear(y){ y=parseInt(y,10); return y<100 ? (y>=70?1900+y:2000+y) : y; }
@@ -96,10 +108,19 @@ function parseCardStatement(rawText) {
   const collapsed = rawLines.map(l => l.replace(/\s+/g, ''));
 
   // Find the transaction window. If no markers found, fall back to whole doc.
+  // A line that is itself a transaction (has a date AND an amount) must never be
+  // treated as the end boundary — otherwise a real line item whose text happens
+  // to match an end marker (e.g. "Interest Charged At 28.99% $98.26") would be
+  // dropped along with everything after it.
   let startIdx = -1, endIdx = rawLines.length;
   for (let i = 0; i < collapsed.length; i++) {
     if (startIdx === -1 && START_MARKERS.some(re => re.test(collapsed[i]))) { startIdx = i + 1; continue; }
-    if (startIdx !== -1 && END_MARKERS.some(re => re.test(collapsed[i]))) { endIdx = i; break; }
+    if (startIdx !== -1 && END_MARKERS.some(re => re.test(collapsed[i]))) {
+      const looksLikeTxn = parseDate(rawLines[i]) && extractAmountsCard(rawLines[i]).length > 0;
+      if (looksLikeTxn) continue; // real transaction, not the footer — keep scanning
+      endIdx = i;
+      break;
+    }
   }
   const useStart = startIdx === -1 ? 0 : startIdx;
   const window = rawLines.slice(useStart, endIdx);

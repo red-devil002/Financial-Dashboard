@@ -120,6 +120,15 @@ async function setup() {
       );
     `);
 
+    // Receipts can now be saved on their own (image + parsed fields) and only
+    // become a transaction when the user ticks "add to dashboard". Store the
+    // chosen category/account/type on the receipt so we can build the
+    // transaction later, and allow image_path to be empty for PDF receipts.
+    await client.query(`ALTER TABLE receipts ADD COLUMN IF NOT EXISTS category VARCHAR(100);`);
+    await client.query(`ALTER TABLE receipts ADD COLUMN IF NOT EXISTS account VARCHAR(100);`);
+    await client.query(`ALTER TABLE receipts ADD COLUMN IF NOT EXISTS type VARCHAR(20) DEFAULT 'expense';`);
+    await client.query(`ALTER TABLE receipts ALTER COLUMN image_path DROP NOT NULL;`);
+
     await client.query(`
       INSERT INTO tax_settings (abn_tax_rate, gst_rate)
       SELECT 28.00, 10.00

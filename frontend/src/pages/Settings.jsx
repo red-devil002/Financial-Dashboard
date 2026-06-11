@@ -1,11 +1,22 @@
 import { useState, useEffect } from 'react';
-import { Plus, Trash2, ArrowRight, Save } from 'lucide-react';
+import { Plus, Trash2, ArrowRight, Save, AlertTriangle } from 'lucide-react';
 import Layout from '../components/Layout';
 import { Card, CardTitle, Button, Field, Spinner } from '../components/ui';
-import { taxApi, categoriesApi, categoryRulesApi, transactionsApi } from '../api/endpoints';
+import { taxApi, categoriesApi, categoryRulesApi, transactionsApi, adminApi } from '../api/endpoints';
 import { useApp } from '../context/AppContext';
 import { useToast } from '../context/ToastContext';
 import { SAMPLE_TRANSACTIONS } from '../lib/format';
+
+const CLEAR_OPTIONS = [
+  { key: 'transactions', label: 'Transactions' },
+  { key: 'receipts', label: 'Receipts (and their images)' },
+  { key: 'imports', label: 'Import history' },
+  { key: 'cards', label: 'Cards' },
+  { key: 'goals', label: 'Goals' },
+  { key: 'rules', label: 'Auto-category rules' },
+  { key: 'categories', label: 'Categories' },
+  { key: 'tax', label: 'Tax rates (reset to defaults)' },
+];
 
 export default function SettingsPage() {
   const { categories, loadCategories, triggerRefresh } = useApp();
@@ -14,6 +25,8 @@ export default function SettingsPage() {
   const [rules, setRules] = useState([]);
   const [newCat, setNewCat] = useState('');
   const [loading, setLoading] = useState(true);
+  const [clearSel, setClearSel] = useState({});
+  const [clearing, setClearing] = useState(false);
 
   useEffect(() => {
     Promise.all([taxApi.get(), categoryRulesApi.list()])
@@ -55,6 +68,30 @@ export default function SettingsPage() {
   async function loadSample() {
     try { await transactionsApi.bulk(SAMPLE_TRANSACTIONS); toast('Sample data loaded', 'success'); triggerRefresh(); }
     catch (err) { toast(err.message, 'error'); }
+  }
+
+  const toggleClear = (key) => setClearSel((s) => ({ ...s, [key]: !s[key] }));
+
+  async function clearData() {
+    const scopes = Object.keys(clearSel).filter((k) => clearSel[k]);
+    if (scopes.length === 0) return toast('Pick at least one type to clear', 'error');
+    const labels = CLEAR_OPTIONS.filter((o) => scopes.includes(o.key)).map((o) => o.label).join(', ');
+    if (!window.confirm(`Permanently delete: ${labels}?\n\nThis cannot be undone.`)) return;
+    setClearing(true);
+    try {
+      await adminApi.reset(scopes);
+      toast('Data cleared', 'success');
+      setClearSel({});
+      loadCategories();
+      reloadRules();
+      // refresh tax rates too in case they were reset
+      try { const r = await taxApi.get(); setRates({ abn_tax_rate: r.abn_tax_rate, gst_rate: r.gst_rate }); } catch {}
+      triggerRefresh();
+    } catch (err) {
+      toast(err.message, 'error');
+    } finally {
+      setClearing(false);
+    }
   }
 
   if (loading) return <Layout title="Settings"><Spinner /></Layout>;
@@ -111,6 +148,33 @@ export default function SettingsPage() {
           <CardTitle>Data</CardTitle>
           <p className="text-sm text-ink2 mb-3">Load a set of sample transactions to explore the dashboard.</p>
           <Button onClick={loadSample}><Plus size={16} /> Load sample data</Button>
+        </Card>
+
+        <Card className="lg:col-span-2 border-negative/30">
+          <CardTitle className="text-negative flex items-center gap-2"><AlertTriangle size={18} /> Clear data</CardTitle>
+          <p className="text-sm text-ink2 mb-3">
+            Tick what you want to permanently remove, then clear. This can't be undone, so use it carefully.
+          </p>
+          <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-4 gap-2 mb-4">
+            {CLEAR_OPTIONS.map((o) => (
+              <label key={o.key} className="flex items-center gap-2 cursor-pointer select-none text-sm bg-surface2 rounded-lg px-3 py-2">
+                <input
+                  type="checkbox"
+                  className="w-4 h-4 accent-negative cursor-pointer shrink-0"
+                  checked={!!clearSel[o.key]}
+                  onChange={() => toggleClear(o.key)}
+                />
+                <span className="truncate">{o.label}</span>
+              </label>
+            ))}
+          </div>
+          <Button
+            onClick={clearData}
+            disabled={clearing || Object.values(clearSel).every((v) => !v)}
+            className="!bg-negative !text-white hover:!opacity-90 justify-center"
+          >
+            <Trash2 size={16} /> {clearing ? 'Clearing…' : 'Clear selected data'}
+          </Button>
         </Card>
       </div>
     </Layout>

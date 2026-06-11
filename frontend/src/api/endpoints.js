@@ -65,6 +65,13 @@ export const importsApi = {
 export const receiptsApi = {
   list: () => api.get('/receipts'),
   scan: (formData) => api.upload('/receipts/scan', formData),
-  confirm: (body) => api.post('/receipts/confirm', body),
+  save: (body) => api.post('/receipts/save', body),
+  update: (id, body) => api.put(`/receipts/${id}`, body),
+  addToDashboard: (id) => api.post(`/receipts/${id}/transaction`, {}),
+  removeFromDashboard: (id) => api.del(`/receipts/${id}/transaction`),
   remove: (id) => api.del(`/receipts/${id}`),
+};
+
+export const adminApi = {
+  reset: (scopes) => api.post('/admin/reset', { scopes }),
 };

@@ -9,23 +9,53 @@
  * the user confirms or corrects the parsed values.
  */
 
+const fs = require('fs');
 const path = require('path');
 const { createWorker } = require('tesseract.js');
 
 // ---- OCR engine (swappable) -------------------------------------------------
 // To move to a cloud OCR provider later, replace the inside of this function
 // with an API call that returns the recognized text as a string.
+// Validation (format detection, HEIC conversion) happens upstream in
+// receiptNormalizer.js, so anything reaching here is already an OCR-ready image.
 async function ocrImage(imagePath) {
-  const worker = await createWorker('eng', 1, {
-    langPath: path.join(__dirname, '..', '..', 'lang-data'),
-    gzip: true,
-    cacheMethod: 'none',
-  });
+  // Fail fast (and clearly) if the language model hasn't been downloaded.
+  const modelPath = path.join(__dirname, '..', '..', 'lang-data', 'eng.traineddata.gz');
+  if (!fs.existsSync(modelPath)) {
+    throw new Error('OCR model missing. Run "npm run ocr:setup" in the backend folder.');
+  }
+
+  // Tesseract's worker can emit an error event asynchronously (on nextTick),
+  // which would otherwise crash the whole process. We race the recognize()
+  // promise against a worker 'error' listener so that failure rejects this
+  // promise cleanly instead of escaping.
+  let worker;
   try {
-    const { data } = await worker.recognize(imagePath);
-    return data.text || '';
+    worker = await createWorker('eng', 1, {
+      langPath: path.join(__dirname, '..', '..', 'lang-data'),
+      gzip: true,
+      cacheMethod: 'none',
+    });
+  } catch (e) {
+    throw new Error('OCR engine failed to start');
+  }
+
+  try {
+    const text = await new Promise((resolve, reject) => {
+      let settled = false;
+      // Catch async worker errors that would otherwise be uncaught.
+      if (worker.worker && typeof worker.worker.on === 'function') {
+        worker.worker.on('error', (err) => {
+          if (!settled) { settled = true; reject(new Error('OCR failed to read the image')); }
+        });
+      }
+      worker.recognize(imagePath)
+        .then((res) => { if (!settled) { settled = true; resolve(res.data.text || ''); } })
+        .catch(() => { if (!settled) { settled = true; reject(new Error('OCR failed to read the image')); } });
+    });
+    return text;
   } finally {
-    await worker.terminate();
+    try { await worker.terminate(); } catch { /* ignore */ }
   }
 }
 
@@ -102,13 +132,29 @@ function extractMerchant(text) {
   return lines[0] ? lines[0].slice(0, 60) : '';
 }
 
-async function parseReceipt(imagePath) {
-  const text = await ocrImage(imagePath);
+async function parseReceipt(filePath) {
+  const { normalizeReceipt } = require('./receiptNormalizer');
+
+  // Turn whatever was uploaded into text: PDFs give text directly, images go
+  // through OCR (HEIC is converted to JPG first). normalizeReceipt throws a
+  // friendly error for unsupported files.
+  const normalized = await normalizeReceipt(filePath);
+
+  let text;
+  let displayPath = null; // a browser-displayable image to store (null for PDF)
+  if (normalized.kind === 'text') {
+    text = normalized.text;
+  } else {
+    displayPath = normalized.path; // converted JPG for HEIC, else the image itself
+    text = await ocrImage(displayPath);
+  }
+
   return {
     raw_text: text,
     amount: extractAmount(text),
     date: extractDate(text),
     merchant: extractMerchant(text),
+    display_path: displayPath, // the route stores this; null means no image (PDF)
   };
 }
 

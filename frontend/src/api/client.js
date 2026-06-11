@@ -54,7 +54,11 @@ export const api = {
   },
 
   // Build an absolute URL for a stored receipt image.
-  receiptImage: (file) => `${API_BASE}/receipts/image/${file}`,
+  // Build a URL for a stored receipt image. If the value is already an absolute
+  // URL (e.g. a Cloudinary link), return it unchanged; otherwise treat it as a
+  // local filename served by the backend.
+  receiptImage: (file) =>
+    /^https?:\/\//.test(file) ? file : `${API_BASE}/receipts/image/${file}`,
 };
 
 export { API_BASE };

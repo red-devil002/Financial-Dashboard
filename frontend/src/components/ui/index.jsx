@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import clsx from 'clsx';
 import { fmt } from '../../lib/format';
@@ -107,7 +108,7 @@ export function Modal({ open, onClose, title, children, wide }) {
   }, [open, onClose]);
 
   if (!open) return null;
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-[150] bg-black/40 flex items-end sm:items-center justify-center p-0 sm:p-4"
       onClick={onClose}
@@ -127,7 +128,8 @@ export function Modal({ open, onClose, title, children, wide }) {
         </div>
         <div className="p-4 sm:p-5">{children}</div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
