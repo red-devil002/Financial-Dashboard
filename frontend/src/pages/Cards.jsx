@@ -5,6 +5,7 @@ import { Card, CardTitle, Metric, MetricGrid, Button, Badge, Spinner, EmptyState
 import { SingleBars, DonutChart } from '../components/Charts';
 import EditTransactionModal from '../components/EditTransactionModal';
 import { CardFormModal, PayCardModal, ImportStatementModal } from '../components/CardModals';
+import AddCardTransactionModal from '../components/AddCardTransactionModal';
 import { cardsApi, transactionsApi, importsApi } from '../api/endpoints';
 import { useApp } from '../context/AppContext';
 import { useToast } from '../context/ToastContext';
@@ -189,6 +190,7 @@ function CardDetail({ card }) {
   const [txs, setTxs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(null);
+  const [addOpen, setAddOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(0);
   const PER = 15;
@@ -248,11 +250,12 @@ function CardDetail({ card }) {
       </div>
 
       <Card className="!p-0 overflow-hidden">
-        <div className="p-3 border-b border-line">
-          <input className="input" placeholder="Search transactions…" value={search} onChange={(e) => { setPage(0); setSearch(e.target.value); }} />
+        <div className="p-3 border-b border-line flex flex-col sm:flex-row gap-2 sm:items-center">
+          <input className="input flex-1" placeholder="Search transactions…" value={search} onChange={(e) => { setPage(0); setSearch(e.target.value); }} />
+          <Button variant="primary" onClick={() => setAddOpen(true)} className="justify-center shrink-0"><Plus size={16} /> Add transaction</Button>
         </div>
         {loading ? <Spinner /> : pageRows.length === 0 ? (
-          <EmptyState title="No transactions" hint="Import this card's statement to see its charges here." />
+          <EmptyState title="No transactions" hint="Import this card's statement, or use “Add transaction” to enter one manually." />
         ) : (
           <>
             <table className="w-full text-sm">
@@ -290,6 +293,7 @@ function CardDetail({ card }) {
       </Card>
 
       <EditTransactionModal open={!!editing} onClose={() => setEditing(null)} tx={editing} cards={[card]} showCardFields />
+      <AddCardTransactionModal open={addOpen} onClose={() => setAddOpen(false)} card={card} />
     </div>
   );
 }
